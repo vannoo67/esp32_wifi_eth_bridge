@@ -71,6 +71,8 @@
 #include "syslog_client.h"
 #include "netflow.h"
 #include "led_strip_status.h"
+#include "arptab.h"
+#include "proxyarp_startup.h"
 #ifdef CONFIG_MDNS_ENABLED
 #include "mdns.h"
 #endif
@@ -804,6 +806,9 @@ char* param_set_default(const char* def_val) {
 
 void app_main(void)
 {
+    arptab_init();  /* must run before any networking starts - see NOTES.md */
+    proxyarp_startup_begin();
+
     initialize_nvs();
     load_log_level();  // Apply saved log level early
 

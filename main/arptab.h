@@ -1,0 +1,52 @@
+#pragma once
+#include <stdint.h>
+#include <time.h>
+#include "lwip/netif.h"
+#include "lwip/ip4_addr.h"
+
+/*
+ * Ported from parprouted.c's ARPTAB_ENTRY linked list.
+ *
+ * Differences from the original:
+ *   - ifname (char*) -> netif (struct netif*). We only ever have two
+ *     interfaces, so a direct pointer is simpler and avoids string
+ *     comparisons parprouted needed for its N-interface generality.
+ *   - route_added / route_add() / route_remove() are GONE. The
+ *     original shelled out to `ip route add/del ... dev X`. On
+ *     ESP32 there's no separate kernel routing table to update -
+ *     want_route here is consulted directly by ip4_route_src_hook()
+ *     in lwip_hooks.c at packet-send time. No side-effecting "install
+ *     the route" step is needed; the table itself IS the route.
+ */
+
+typedef struct arptab_entry {
+    ip4_addr_t ipaddr;
+    struct netif *netif;
+    uint8_t hwaddr[6];
+    time_t tstamp;
+    int incomplete;
+    int want_route;
+    struct arptab_entry *next;
+} arptab_entry_t;
+
+#define ARP_TABLE_ENTRY_TIMEOUT 300  /* seconds, matches parprouted default-ish */
+
+void arptab_init(void);
+
+/* Find-or-create an entry for (ip, netif). Mirrors replace_entry(). */
+arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif);
+
+/* Mirrors findentry(): does this IP exist anywhere in the table? */
+int arptab_find(const ip4_addr_t *ip);
+
+/* Mirrors remove_other_routes(): mark entries for this IP on OTHER
+ * interfaces as no-longer-wanted, since we just saw it on `netif`. */
+int arptab_remove_other_routes(const ip4_addr_t *ip, struct netif *netif);
+
+/* Mirrors processarp()'s cleanup pass, minus the route_add/route_remove
+ * shell-outs - just expires stale entries and drops want_route=0 ones. */
+void arptab_age_out(void);
+
+/* Used by ip4_route_src_hook(). Returns the netif to route this
+ * destination through, or NULL if unknown / not wanted. */
+struct netif *arptab_lookup_netif(const ip4_addr_t *ip);
