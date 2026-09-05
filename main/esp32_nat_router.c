@@ -155,6 +155,7 @@ uint32_t my_ap_ip;
 struct portmap_table_entry portmap_tab[IP_PORTMAP_MAX];
 struct dhcp_reservation_entry dhcp_reservations[MAX_DHCP_RESERVATIONS];
 
+uint8_t eth_mode = 0;  // ProxyARP disabled by default
 uint8_t eth_nat_enabled = 1;  // NAT enabled by default
 uint8_t eth_dhcps_enabled = 1;  // DHCP server enabled by default
 uint8_t eth_dhcpc_enabled = 0;  // Ethernet DHCP client (uplink) mode, off by default
@@ -806,9 +807,6 @@ char* param_set_default(const char* def_val) {
 
 void app_main(void)
 {
-    arptab_init();  /* must run before any networking starts - see NOTES.md */
-    proxyarp_startup_begin();
-
     initialize_nvs();
     load_log_level();  // Apply saved log level early
 
@@ -895,6 +893,23 @@ void app_main(void)
         int dhcps_val = 1;
         get_config_param_int("eth_dhcps", &dhcps_val);
         eth_dhcps_enabled = (dhcps_val != 0) ? 1 : 0;
+    }
+    {
+        int mode_val = 0;
+        get_config_param_int("eth_mode", &mode_val);
+        eth_mode = (mode_val != 0) ? 1 : 0;
+
+        if (eth_mode) {
+            /* proxy-ARP mode owns this invariant - force NAT and the
+             * built-in DHCP server off in memory only. Their persisted
+             * NVS values are left untouched, so switching back to nat
+             * mode later restores whatever was configured before. */
+            eth_nat_enabled = 0;
+            eth_dhcps_enabled = 0;
+
+            arptab_init();
+            proxyarp_startup_begin();
+        }
     }
     {
         int dhcpc_val = 0;

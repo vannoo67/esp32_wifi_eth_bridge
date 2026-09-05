@@ -93,7 +93,9 @@ static void learn_sender(bridge_iface_t iface, const arp_hdr_t *arp)
     if (entry != NULL) {
         memcpy(entry->hwaddr, arp->sha, 6);
         arptab_remove_other_routes(&sender_ip, netif);
-        ESP_LOGI(TAG, "learned %s on %s", ip4addr_ntoa(&sender_ip), netif->name);
+        char ifname[8];
+        netif_name_str(netif, ifname, sizeof(ifname));
+        ESP_LOGI(TAG, "learned %s on %s", ip4addr_ntoa(&sender_ip), ifname);
     }
 }
 
@@ -133,8 +135,12 @@ static void maybe_proxy_reply(bridge_iface_t iface, const arp_hdr_t *arp)
     build_arp_frame(&reply, ARPOP_REPLY, arp->sha /* unicast back to requester */,
                      our_mac, &target_ip, arp->sha, &requester_ip);
     send_on_iface(iface, &reply);
-    ESP_LOGI(TAG, "proxy-replied for %s on %s",
-              ip4addr_ntoa(&target_ip), this_netif ? this_netif->name : "?");
+    {
+        char ifname[8];
+        netif_name_str(this_netif, ifname, sizeof(ifname));
+        ESP_LOGI(TAG, "proxy-replied for %s on %s",
+                  ip4addr_ntoa(&target_ip), ifname);
+    }
 }
 
 static void proxyarp_task_fn(void *arg)

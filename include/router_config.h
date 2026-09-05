@@ -46,6 +46,9 @@ extern uint16_t ap_mss_clamp;
 // Path MTU for downlink clients (0 = disabled, otherwise send ICMP Frag Needed when DF packets exceed this)
 extern uint16_t ap_pmtu;
 
+// Ethernet mode (0 = nat (default), 1 = proxyarp)
+extern uint8_t eth_mode;
+
 // Ethernet NAT mode (1 = NAT enabled (default), 0 = routed/no NAT)
 extern uint8_t eth_nat_enabled;
 

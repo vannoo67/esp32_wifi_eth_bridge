@@ -20,7 +20,7 @@ idf_component_get_property(lwip_lib lwip COMPONENT_LIB)
 message(STATUS "lwip_lib = ${lwip_lib}")
 
 target_include_directories(${lwip_lib} PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/main"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
 target_compile_definitions(${lwip_lib} PRIVATE

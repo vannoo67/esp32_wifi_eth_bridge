@@ -27,8 +27,10 @@ struct netif *proxyarp_ip4_route_src_hook(const ip4_addr_t *src, const ip4_addr_
 
     struct netif *target = arptab_lookup_netif(dest);
     if (target != NULL) {
+        char ifname[8];
+        netif_name_str(target, ifname, sizeof(ifname));
         ESP_LOGW(TAG, "MATCHED - routing %s via learned netif %s",
-                 ip4addr_ntoa(dest), target->name);
+                 ip4addr_ntoa(dest), ifname);
         return target;
     }
 

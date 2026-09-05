@@ -57,6 +57,7 @@ extern void    web_ui_set_bind(uint8_t bind);
 #include "esp_ota_ops.h"
 #include "esp_app_desc.h"
 #include "iperf.h"
+#include "arptab.h"
 
 #ifdef CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS
 #define WITH_TASKS_INFO 1
@@ -70,6 +71,7 @@ static void register_set_mac(void);
 static void register_set_sta_static(void);
 static void register_set_ap_ip(void);
 static void register_set_ap_dns(void);
+static void register_set_eth_mode(void);
 static void register_set_eth_nat(void);
 static void register_set_eth_dhcps(void);
 static void register_set_eth_dhcpc(void);
@@ -398,6 +400,7 @@ void register_router(void)
     register_set_sta_static();
     register_set_ap_ip();
     register_set_ap_dns();
+    register_set_eth_mode();
     register_set_eth_nat();
     register_set_eth_dhcps();
     register_set_eth_dhcpc();
@@ -799,6 +802,55 @@ static void register_set_ap_dns(void)
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 }
 
+/* 'set_eth_mode' command */
+static struct {
+    struct arg_str *mode;
+    struct arg_end *end;
+} set_eth_mode_arg;
+
+static int set_eth_mode(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **) &set_eth_mode_arg);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, set_eth_mode_arg.end, argv[0]);
+        return 1;
+    }
+    const char *mode = set_eth_mode_arg.mode->sval[0];
+    int val;
+    if (strcasecmp(mode, "proxyarp") == 0) {
+        val = 1;
+    } else if (strcasecmp(mode, "nat") == 0) {
+        val = 0;
+    } else {
+        printf("Usage: set_eth_mode <nat|proxyarp>\n");
+        return 1;
+    }
+    esp_err_t err = set_config_param_int("eth_mode", val);
+    if (err == ESP_OK) {
+        eth_mode = val;
+        printf("Ethernet mode set to %s. Restart to apply.\n",
+               val ? "proxyarp" : "nat");
+    }
+    return err;
+}
+
+static void register_set_eth_mode(void)
+{
+    set_eth_mode_arg.mode = arg_str1(NULL, NULL, "<nat|proxyarp>",
+                                       "Select Ethernet downlink mode");
+    set_eth_mode_arg.end = arg_end(1);
+    const esp_console_cmd_t cmd = {
+        .command = "set_eth_mode",
+        .help = "Select Ethernet mode: nat (default) or proxyarp "
+                "(same-subnet transparent bridging, forces NAT and "
+                "built-in DHCP server off)",
+        .hint = NULL,
+        .func = &set_eth_mode,
+        .argtable = &set_eth_mode_arg
+    };
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+}
+
 /* 'set_eth_nat' command */
 static struct {
     struct arg_str *mode;
@@ -846,6 +898,8 @@ static void register_set_eth_nat(void)
     };
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 }
+
+
 
 /* 'set_eth_dhcps' command */
 static struct {
@@ -1428,6 +1482,7 @@ static int show(int argc, char **argv)
         printf("  mappings - Show DHCP pool, reservations and port mappings\n");
         printf("  acl      - Show firewall ACL rules\n");
         printf("  vpn      - Show WireGuard VPN status and config\n");
+        printf("  arptab   - Show learned proxy-ARP entries (proxy-ARP mode only)\n");
         return 1;
     }
 
@@ -1469,6 +1524,10 @@ static int show(int argc, char **argv)
             printf("Ethernet IP: " IPSTR "\n", IP2STR(&addr));
         }
         printf("Ethernet: %s\n", eth_link_up ? "link up" : "link down");
+        printf("Ethernet mode: %s\n", eth_mode ? "proxy-ARP" : "NAT");
+        if (eth_mode) {
+            printf("Proxy-ARP entries: %d\n", arptab_count());
+        }
 
         // Byte counts
         char sent_str[16], recv_str[16];
@@ -1731,7 +1790,15 @@ static int show(int argc, char **argv)
             }
             printf("Image state: %s\n", state_str);
         }
-
+    } else if (strcmp(type, "arptab") == 0) {
+        if (!eth_mode) {
+            printf("Not in proxy-ARP mode (currently: NAT). "
+                   "Run 'set_eth_mode proxyarp' and restart to enable.\n");
+        } else {
+            printf("Proxy-ARP Table:\n");
+            printf("================\n");
+            arptab_print();
+        }
     } else {
         printf("Invalid parameter. Use: show <status|config|mappings|acl|vpn|ota>\n");
         return 1;
@@ -1742,12 +1809,12 @@ static int show(int argc, char **argv)
 
 static void register_show(void)
 {
-    show_args.type = arg_str1(NULL, NULL, "[status|config|mappings|acl|vpn|ota]", "Type of information");
+    show_args.type = arg_str1(NULL, NULL, "[status|config|mappings|acl|vpn|ota|arptab]", "Type of information");
     show_args.end = arg_end(1);
 
     const esp_console_cmd_t cmd = {
         .command = "show",
-        .help = "Show router status, config, mappings, ACL rules, VPN or OTA info",
+        .help = "Show router status, config, mappings, ACL rules, VPN, OTA info or proxy-ARP table",
         .hint = NULL,
         .func = &show,
         .argtable = &show_args

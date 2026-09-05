@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdio.h>
 #include "arptab.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -157,4 +158,52 @@ struct netif *arptab_lookup_netif(const ip4_addr_t *ip)
     }
     xSemaphoreGive(s_arptab_mutex);
     return result;
+}
+
+int arptab_count(void)
+{
+    if (s_arptab_mutex == NULL) {
+        return 0;
+    }
+    xSemaphoreTake(s_arptab_mutex, portMAX_DELAY);
+    int count = 0;
+    for (arptab_entry_t *cur = s_arptab; cur != NULL; cur = cur->next) {
+        if (cur->want_route) {
+            count++;
+        }
+    }
+    xSemaphoreGive(s_arptab_mutex);
+    return count;
+}
+
+void netif_name_str(struct netif *netif, char *buf, size_t buflen)
+{
+    if (netif == NULL) {
+        snprintf(buf, buflen, "?");
+        return;
+    }
+    snprintf(buf, buflen, "%c%c%u", netif->name[0], netif->name[1], netif->num);
+}
+
+void arptab_print(void)
+{
+    if (s_arptab_mutex == NULL) {
+        printf("(proxy-ARP table not initialized)\n");
+        return;
+    }
+    xSemaphoreTake(s_arptab_mutex, portMAX_DELAY);
+    time_t now = time(NULL);
+    printf("%-16s %-9s %-17s %6s %s\n", "IP", "Interface", "MAC", "Age(s)", "Active");
+    for (arptab_entry_t *cur = s_arptab; cur != NULL; cur = cur->next) {
+        char ifname[8];
+        netif_name_str(cur->netif, ifname, sizeof(ifname));
+        printf("%-16s %-9s %02x:%02x:%02x:%02x:%02x:%02x %6ld %s\n",
+               ip4addr_ntoa(&cur->ipaddr),
+               ifname,
+               cur->hwaddr[0], cur->hwaddr[1], cur->hwaddr[2],
+               cur->hwaddr[3], cur->hwaddr[4], cur->hwaddr[5],
+               (long)(now - cur->tstamp),
+               cur->want_route ? "yes" : "no");
+    }
+    xSemaphoreGive(s_arptab_mutex);
 }

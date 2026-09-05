@@ -1219,7 +1219,16 @@ static esp_err_t config_get_handler(httpd_req_t *req)
                         ap_dns = strdup(dns_param);
                     }
                 }
-
+                // Check for Ethernet mode setting
+                {
+                    char mode_param[16];
+                    if (httpd_query_key_value(buf, "eth_mode", mode_param, sizeof(mode_param)) == ESP_OK) {
+                        int mode_val = (strcasecmp(mode_param, "proxyarp") == 0) ? 1 : 0;
+                        set_config_param_int("eth_mode", mode_val);
+                        eth_mode = mode_val;
+                        ESP_LOGI(TAG, "Ethernet mode set to %s", mode_val ? "proxyarp" : "nat");
+                    }
+                }
                 // Check for NAT setting
                 {
                     char nat_param[8];

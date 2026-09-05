@@ -50,3 +50,16 @@ void arptab_age_out(void);
 /* Used by ip4_route_src_hook(). Returns the netif to route this
  * destination through, or NULL if unknown / not wanted. */
 struct netif *arptab_lookup_netif(const ip4_addr_t *ip);
+
+/* Number of currently-active (want_route) entries - for status/UI display. */
+int arptab_count(void);
+
+/* Correctly formats a netif's name for display/logging. netif->name is
+ * NOT a null-terminated string - it's a fixed 2-byte array, with the
+ * numeric suffix in a separate 'num' field. Never printf("%s", ...)
+ * a netif->name directly. buf should be at least 8 bytes. */
+void netif_name_str(struct netif *netif, char *buf, size_t buflen);
+
+/* Prints a formatted table of all entries to stdout - for a CLI
+ * `show arptab` command. */
+void arptab_print(void);
