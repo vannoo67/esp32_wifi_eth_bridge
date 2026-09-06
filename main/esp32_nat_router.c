@@ -912,6 +912,11 @@ void app_main(void)
         }
     }
     {
+        int arp_timeout_val = 300;
+        get_config_param_int("arp_timeout", &arp_timeout_val);
+        arptab_set_timeout(arp_timeout_val);
+    }
+    {
         int dhcpc_val = 0;
         get_config_param_int("eth_dhcpc", &dhcpc_val);
         eth_dhcpc_enabled = (dhcpc_val != 0) ? 1 : 0;

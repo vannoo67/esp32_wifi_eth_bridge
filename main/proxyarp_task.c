@@ -143,6 +143,8 @@ static void maybe_proxy_reply(bridge_iface_t iface, const arp_hdr_t *arp)
     }
 }
 
+#define ARPTAB_AGE_CHECK_INTERVAL_MS 30000
+
 static void proxyarp_task_fn(void *arg)
 {
     (void)arg;
@@ -152,7 +154,13 @@ static void proxyarp_task_fn(void *arg)
     ESP_LOGI(TAG, "proxy-ARP task started");
 
     for (;;) {
-        if (xQueueReceive(q, &qf, portMAX_DELAY) != pdTRUE) {
+        BaseType_t got_frame = xQueueReceive(q, &qf, pdMS_TO_TICKS(ARPTAB_AGE_CHECK_INTERVAL_MS));
+
+        if (got_frame != pdTRUE) {
+            /* Timed out waiting for a frame - a convenient, already-
+             * running place to periodically age out stale entries,
+             * rather than spawning a dedicated task just for this. */
+            arptab_age_out();
             continue;
         }
 

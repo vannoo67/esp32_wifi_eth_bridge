@@ -73,6 +73,7 @@ static void register_set_ap_ip(void);
 static void register_set_ap_dns(void);
 static void register_set_eth_mode(void);
 static void register_set_eth_nat(void);
+static void register_set_arp_timeout(void);
 static void register_set_eth_dhcps(void);
 static void register_set_eth_dhcpc(void);
 static void register_show(void);
@@ -401,6 +402,7 @@ void register_router(void)
     register_set_ap_ip();
     register_set_ap_dns();
     register_set_eth_mode();
+    register_set_arp_timeout();
     register_set_eth_nat();
     register_set_eth_dhcps();
     register_set_eth_dhcpc();
@@ -847,6 +849,47 @@ static void register_set_eth_mode(void)
         .hint = NULL,
         .func = &set_eth_mode,
         .argtable = &set_eth_mode_arg
+    };
+    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+}
+
+/* 'set_arp_timeout' command */
+static struct {
+    struct arg_int *seconds;
+    struct arg_end *end;
+} set_arp_timeout_arg;
+
+static int set_arp_timeout(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **) &set_arp_timeout_arg);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, set_arp_timeout_arg.end, argv[0]);
+        return 1;
+    }
+    int val = set_arp_timeout_arg.seconds->ival[0];
+    if (val < 10 || val > 86400) {
+        printf("Usage: set_arp_timeout <seconds> (10-86400)\n");
+        return 1;
+    }
+    esp_err_t err = set_config_param_int("arp_timeout", val);
+    if (err == ESP_OK) {
+        arptab_set_timeout(val);
+        printf("Proxy-ARP entry timeout set to %d seconds (applied immediately).\n", val);
+    }
+    return err;
+}
+
+static void register_set_arp_timeout(void)
+{
+    set_arp_timeout_arg.seconds = arg_int1(NULL, NULL, "<seconds>",
+        "Proxy-ARP entry timeout in seconds (10-86400, default 300)");
+    set_arp_timeout_arg.end = arg_end(1);
+    const esp_console_cmd_t cmd = {
+        .command = "set_arp_timeout",
+        .help = "Set how long learned proxy-ARP entries stay valid before expiring",
+        .hint = NULL,
+        .func = &set_arp_timeout,
+        .argtable = &set_arp_timeout_arg
     };
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 }
@@ -1527,6 +1570,7 @@ static int show(int argc, char **argv)
         printf("Ethernet mode: %s\n", eth_mode ? "proxy-ARP" : "NAT");
         if (eth_mode) {
             printf("Proxy-ARP entries: %d\n", arptab_count());
+            printf("Proxy-ARP timeout: %d seconds\n", arptab_get_timeout());
         }
 
         // Byte counts

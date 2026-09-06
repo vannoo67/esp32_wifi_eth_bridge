@@ -29,9 +29,15 @@ typedef struct arptab_entry {
     struct arptab_entry *next;
 } arptab_entry_t;
 
-#define ARP_TABLE_ENTRY_TIMEOUT 300  /* seconds, matches parprouted default-ish */
+#define ARP_TABLE_ENTRY_TIMEOUT_DEFAULT 300  /* seconds, matches parprouted default-ish */
 
 void arptab_init(void);
+
+/* Runtime-configurable entry timeout, in seconds. Defaults to
+ * ARP_TABLE_ENTRY_TIMEOUT_DEFAULT until explicitly set (typically
+ * from persisted config at boot, or live via CLI/WebUI). */
+void arptab_set_timeout(int seconds);
+int arptab_get_timeout(void);
 
 /* Find-or-create an entry for (ip, netif). Mirrors replace_entry(). */
 arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif);

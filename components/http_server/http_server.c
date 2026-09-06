@@ -47,6 +47,8 @@
 #include "esp_app_format.h"
 #include "esp_app_desc.h"
 
+#include "arptab.h"
+
 static const char *TAG = "HTTPServer";
 
 /* Stream one HTTP chunk and abort the handler immediately if the send fails.
@@ -1229,6 +1231,18 @@ static esp_err_t config_get_handler(httpd_req_t *req)
                         ESP_LOGI(TAG, "Ethernet mode set to %s", eth_mode ? "proxyarp" : "nat");
                     }
                 }
+                // Check for ARP timeout setting
+                {
+                    char arp_timeout_param[8];
+                    if (httpd_query_key_value(buf, "arp_timeout", arp_timeout_param, sizeof(arp_timeout_param)) == ESP_OK) {
+                        int timeout_val = atoi(arp_timeout_param);
+                        if (timeout_val < 10) timeout_val = 10;
+                        if (timeout_val > 86400) timeout_val = 86400;
+                        set_config_param_int("arp_timeout", timeout_val);
+                        arptab_set_timeout(timeout_val);
+                        ESP_LOGI(TAG, "Proxy-ARP timeout set to %d seconds", timeout_val);
+                    }
+                }
                 // Check for NAT setting
                 {
                     char nat_param[8];
@@ -1567,11 +1581,15 @@ static esp_err_t config_get_handler(httpd_req_t *req)
     int saved_nat = 1, saved_dhcps = 1;
     get_config_param_int("eth_nat", &saved_nat);
     get_config_param_int("eth_dhcps", &saved_dhcps);
+    
+    int saved_arp_timeout = 300;
+    get_config_param_int("arp_timeout", &saved_arp_timeout);
 
     snprintf(section, sizeof(section), CONFIG_CHUNK_AP,
         ap_ip_str, ap_dns ? ap_dns : "",
         eth_mode == 0 ? "selected" : "",
         eth_mode == 1 ? "selected" : "",
+        saved_arp_timeout,
         saved_nat ? "checked" : "",
         saved_nat ? "" : "checked",
         saved_dhcps ? "checked" : "",

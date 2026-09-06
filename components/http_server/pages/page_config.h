@@ -61,6 +61,7 @@ var sel = document.getElementById('eth_mode_select');\
 var natRow = document.getElementById('eth_nat_row');\
 var dhcpsRow = document.getElementById('eth_dhcps_row');\
 if (!sel || !natRow || !dhcpsRow) { return; }\
+var timeoutRow = document.getElementById('arp_timeout_row');\
 var natRadios = document.getElementsByName('eth_nat');\
 var dhcpsRadios = document.getElementsByName('eth_dhcps');\
 if (window.savedEthNatValue === undefined) {\
@@ -82,11 +83,12 @@ dhcpsRadios[i].checked = proxyArp ? (dhcpsRadios[i].value === '0') : (dhcpsRadio
 }\
 natRow.style.opacity = proxyArp ? '0.5' : '1';\
 dhcpsRow.style.opacity = proxyArp ? '0.5' : '1';\
+if (timeoutRow) { timeoutRow.style.display = proxyArp ? '' : 'none'; }\
 }\
 document.addEventListener('DOMContentLoaded', updateEthModeFields);\
 </script>"
 
-/* Ethernet subnet settings - uses %s for: ap_ip, ap_dns, eth_mode_sel, eth_mode_sel, nat_on_sel, nat_off_sel, dhcps_on_sel, dhcps_off_sel */
+/* Ethernet subnet settings - uses %s for: ap_ip, ap_dns, eth_mode_sel, eth_mode_sel, arp_timeout, nat_on_sel, nat_off_sel, dhcps_on_sel, dhcps_off_sel */
 #define CONFIG_CHUNK_AP "\
 <h2>Ethernet Subnet Settings</h2>\
 <form action='' method='GET'>\
@@ -97,6 +99,7 @@ document.addEventListener('DOMContentLoaded', updateEthModeFields);\
 <option value='0' %s>NAT</option>\
 <option value='1' %s>ProxyARP</option>\
 </select></td></tr>\
+<tr id='arp_timeout_row'><td>ARP Timeout (s)</td><td><input type='number' name='arp_timeout' value='%d' min='10' max='86400'/></td></tr>\
 <tr id='eth_nat_row'><td>NAT</td><td>\
 <label style='margin-right: 1rem;'><input type='radio' name='eth_nat' value='1' %s> Enabled</label>\
 <label><input type='radio' name='eth_nat' value='0' %s> Disabled (routed)</label>\

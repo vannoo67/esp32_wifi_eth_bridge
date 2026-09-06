@@ -8,6 +8,17 @@
 static const char *TAG = "arptab";
 static arptab_entry_t *s_arptab = NULL;
 static SemaphoreHandle_t s_arptab_mutex = NULL;
+static int s_arp_timeout_sec = ARP_TABLE_ENTRY_TIMEOUT_DEFAULT;
+
+void arptab_set_timeout(int seconds)
+{
+    s_arp_timeout_sec = seconds;
+}
+
+int arptab_get_timeout(void)
+{
+    return s_arp_timeout_sec;
+}
 
 void arptab_init(void)
 {
@@ -120,8 +131,8 @@ void arptab_age_out(void)
     time_t now = time(NULL);
 
     while (cur != NULL) {
-        if (!cur->want_route || (now - cur->tstamp) > ARP_TABLE_ENTRY_TIMEOUT) {
-            ESP_LOGD(TAG, "expiring entry for %s", ip4addr_ntoa(&cur->ipaddr));
+        if (!cur->want_route || (now - cur->tstamp) > s_arp_timeout_sec) {
+            ESP_LOGI(TAG, "expiring entry for %s", ip4addr_ntoa(&cur->ipaddr));
             arptab_entry_t *dead = cur;
             if (prev != NULL) {
                 prev->next = cur->next;
