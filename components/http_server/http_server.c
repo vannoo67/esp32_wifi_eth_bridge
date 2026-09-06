@@ -1221,12 +1221,12 @@ static esp_err_t config_get_handler(httpd_req_t *req)
                 }
                 // Check for Ethernet mode setting
                 {
-                    char mode_param[16];
+                    char mode_param[8];
                     if (httpd_query_key_value(buf, "eth_mode", mode_param, sizeof(mode_param)) == ESP_OK) {
-                        int mode_val = (strcasecmp(mode_param, "proxyarp") == 0) ? 1 : 0;
+                        int mode_val = atoi(mode_param);
                         set_config_param_int("eth_mode", mode_val);
-                        eth_mode = mode_val;
-                        ESP_LOGI(TAG, "Ethernet mode set to %s", mode_val ? "proxyarp" : "nat");
+                        eth_mode = (mode_val != 0) ? 1 : 0;
+                        ESP_LOGI(TAG, "Ethernet mode set to %s", eth_mode ? "proxyarp" : "nat");
                     }
                 }
                 // Check for NAT setting
@@ -1558,12 +1558,24 @@ static esp_err_t config_get_handler(httpd_req_t *req)
     SEND_CHUNK(req, CONFIG_CHUNK_SCRIPT, HTTPD_RESP_USE_STRLEN);
 
     /* Chunk 4: Ethernet Subnet Settings */
+    /* Read the RAW persisted values for form population, not the
+        * in-memory eth_nat_enabled/eth_dhcps_enabled globals - those
+        * get forced to 0 at boot whenever eth_mode is proxyarp (see
+        * app_main()), which would otherwise make the form always
+        * show "Disabled" for both, regardless of what was actually
+        * last saved before switching modes. */
+    int saved_nat = 1, saved_dhcps = 1;
+    get_config_param_int("eth_nat", &saved_nat);
+    get_config_param_int("eth_dhcps", &saved_dhcps);
+
     snprintf(section, sizeof(section), CONFIG_CHUNK_AP,
         ap_ip_str, ap_dns ? ap_dns : "",
-        eth_nat_enabled ? "checked" : "",
-        eth_nat_enabled ? "" : "checked",
-        eth_dhcps_enabled ? "checked" : "",
-        eth_dhcps_enabled ? "" : "checked");
+        eth_mode == 0 ? "selected" : "",
+        eth_mode == 1 ? "selected" : "",
+        saved_nat ? "checked" : "",
+        saved_nat ? "" : "checked",
+        saved_dhcps ? "checked" : "",
+        saved_dhcps ? "" : "checked");
     SEND_CHUNK(req, section, HTTPD_RESP_USE_STRLEN);
 
     /* Chunk 5: STA Settings */

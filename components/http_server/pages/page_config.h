@@ -56,20 +56,52 @@ document.getElementById('container').style.display = 'none';\
 document.body.innerHTML ='<div id=\"container\"><h1>Configuration</h1><p style=\"text-align:center; margin: 2rem 0; color: #00e676;\">Settings saved! Rebooting...</p></div>';\
 setTimeout(\"location.href = '/'\", 10000);\
 }\
+function updateEthModeFields() {\
+var sel = document.getElementById('eth_mode_select');\
+var natRow = document.getElementById('eth_nat_row');\
+var dhcpsRow = document.getElementById('eth_dhcps_row');\
+if (!sel || !natRow || !dhcpsRow) { return; }\
+var natRadios = document.getElementsByName('eth_nat');\
+var dhcpsRadios = document.getElementsByName('eth_dhcps');\
+if (window.savedEthNatValue === undefined) {\
+window.savedEthNatValue = null;\
+for (var i = 0; i < natRadios.length; i++) { if (natRadios[i].checked) { window.savedEthNatValue = natRadios[i].value; } }\
+}\
+if (window.savedEthDhcpsValue === undefined) {\
+window.savedEthDhcpsValue = null;\
+for (var i = 0; i < dhcpsRadios.length; i++) { if (dhcpsRadios[i].checked) { window.savedEthDhcpsValue = dhcpsRadios[i].value; } }\
+}\
+var proxyArp = sel.value === '1';\
+for (var i = 0; i < natRadios.length; i++) {\
+natRadios[i].disabled = proxyArp;\
+natRadios[i].checked = proxyArp ? (natRadios[i].value === '0') : (natRadios[i].value === window.savedEthNatValue);\
+}\
+for (var i = 0; i < dhcpsRadios.length; i++) {\
+dhcpsRadios[i].disabled = proxyArp;\
+dhcpsRadios[i].checked = proxyArp ? (dhcpsRadios[i].value === '0') : (dhcpsRadios[i].value === window.savedEthDhcpsValue);\
+}\
+natRow.style.opacity = proxyArp ? '0.5' : '1';\
+dhcpsRow.style.opacity = proxyArp ? '0.5' : '1';\
+}\
+document.addEventListener('DOMContentLoaded', updateEthModeFields);\
 </script>"
 
-/* Ethernet subnet settings - uses %s for: ap_ip, ap_dns, nat_on_sel, nat_off_sel, dhcps_on_sel, dhcps_off_sel */
+/* Ethernet subnet settings - uses %s for: ap_ip, ap_dns, eth_mode_sel, eth_mode_sel, nat_on_sel, nat_off_sel, dhcps_on_sel, dhcps_off_sel */
 #define CONFIG_CHUNK_AP "\
 <h2>Ethernet Subnet Settings</h2>\
 <form action='' method='GET'>\
 <table>\
 <tr><td>IP</td><td><input type='text' name='ap_ip_addr' value='%s' placeholder='192.168.4.1'/></td></tr>\
 <tr><td>DNS Server</td><td><input type='text' name='ap_dns' value='%s' placeholder='empty = use upstream DNS'/></td></tr>\
-<tr><td>NAT</td><td>\
+<tr><td>Mode</td><td><select name='eth_mode' id='eth_mode_select' onchange='updateEthModeFields()'>\
+<option value='0' %s>NAT</option>\
+<option value='1' %s>ProxyARP</option>\
+</select></td></tr>\
+<tr id='eth_nat_row'><td>NAT</td><td>\
 <label style='margin-right: 1rem;'><input type='radio' name='eth_nat' value='1' %s> Enabled</label>\
 <label><input type='radio' name='eth_nat' value='0' %s> Disabled (routed)</label>\
 </td></tr>\
-<tr><td>DHCP Server</td><td>\
+<tr id='eth_dhcps_row'><td>DHCP Server</td><td>\
 <label style='margin-right: 1rem;'><input type='radio' name='eth_dhcps' value='1' %s> Enabled</label>\
 <label><input type='radio' name='eth_dhcps' value='0' %s> Disabled</label>\
 </td></tr>\
