@@ -895,10 +895,28 @@ void app_main(void)
         eth_dhcps_enabled = (dhcps_val != 0) ? 1 : 0;
     }
     {
+        int dhcpc_val = 0;
+        get_config_param_int("eth_dhcpc", &dhcpc_val);
+        eth_dhcpc_enabled = (dhcpc_val != 0) ? 1 : 0;
+    }
+    // DHCP client and DHCP server cannot coexist on the Ethernet netif.
+    // When the Ethernet uplink (DHCP client) mode is active, force the server off.
+    if (eth_dhcpc_enabled) {
+        eth_dhcps_enabled = 0;
+    }
+    {
         int mode_val = 0;
         get_config_param_int("eth_mode", &mode_val);
         eth_mode = (mode_val != 0) ? 1 : 0;
 
+        if (eth_mode && eth_dhcpc_enabled) {
+            ESP_LOGE("app_main", "Both Bridged mode and DHCP-client mode are "
+                    "enabled - this is an invalid combination. Falling back to "
+                    "Routed mode for this boot; run 'set_eth_mode routed' or "
+                    "'set_eth_dhcpc off' to fix persisted config.");
+            eth_mode = 0;
+        }
+        
         if (eth_mode) {
             /* proxy-ARP mode owns this invariant - force NAT and the
              * built-in DHCP server off in memory only. Their persisted
@@ -915,16 +933,6 @@ void app_main(void)
         int arp_timeout_val = 300;
         get_config_param_int("arp_timeout", &arp_timeout_val);
         arptab_set_timeout(arp_timeout_val);
-    }
-    {
-        int dhcpc_val = 0;
-        get_config_param_int("eth_dhcpc", &dhcpc_val);
-        eth_dhcpc_enabled = (dhcpc_val != 0) ? 1 : 0;
-    }
-    // DHCP client and DHCP server cannot coexist on the Ethernet netif.
-    // When the Ethernet uplink (DHCP client) mode is active, force the server off.
-    if (eth_dhcpc_enabled) {
-        eth_dhcps_enabled = 0;
     }
     get_config_param_str("hostname", &hostname);
     if (hostname == NULL || hostname[0] == '\0') {

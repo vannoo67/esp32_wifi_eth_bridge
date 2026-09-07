@@ -827,6 +827,12 @@ static int set_eth_mode(int argc, char **argv)
         printf("Usage: set_eth_mode <routed|bridged>\n");
         return 1;
     }
+    if (val && eth_dhcpc_enabled) {
+        printf("Cannot enable Bridged mode while Ethernet is in DHCP-client "
+               "(uplink) mode - the Ethernet port has no downstream devices "
+               "to bridge in that mode. Run 'set_eth_dhcpc off' first.\n");
+        return 1;
+    }
     esp_err_t err = set_config_param_int("eth_mode", val);
     if (err == ESP_OK) {
         eth_mode = val;
@@ -1015,6 +1021,12 @@ static int set_eth_dhcpc(int argc, char **argv)
         val = 0;
     } else {
         printf("Usage: set_eth_dhcpc <on|off>\n");
+        return 1;
+    }
+
+    if (val && eth_mode) {
+        printf("Cannot enable DHCP-client (uplink) mode while Ethernet is "
+               "in Bridged mode - run 'set_eth_mode routed' first.\n");
         return 1;
     }
 
