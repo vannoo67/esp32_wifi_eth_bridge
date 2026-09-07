@@ -1,4 +1,16 @@
 #pragma once
+/*
+ * Derived from parprouted with Vladimir Ivashchenko's consent.
+ *
+ * The ARP table structure and lookup logic here (arptab_replace_entry,
+ * arptab_find, arptab_remove_other_routes) are a port of parprouted's
+ * arptab linked list (https://github.com/Adellica/parprouted,
+ * parprouted.c). Vladimir Ivashchenko, parprouted's original author,
+ * has kindly agreed to license the relevant parprouted code under MIT
+ * specifically to allow its use here, alongside esp32_ethernet_router
+ * (https://github.com/martin-ger/esp32_ethernet_router), which this
+ * project is built on.
+ */
 #include <stdint.h>
 #include <time.h>
 #include "lwip/netif.h"

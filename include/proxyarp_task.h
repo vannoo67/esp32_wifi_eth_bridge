@@ -1,4 +1,12 @@
 #pragma once
+/*
+ * Derived from parprouted with Vladimir Ivashchenko's consent.
+ *
+ * The request/reply handling and host-learning logic in
+ * proxyarp_task.c is a port of parprouted's arp() main loop
+ * (https://github.com/Adellica/parprouted, arp.c). See arptab.h for
+ * the fuller attribution note.
+ */
 #include "lwip/netif.h"
 
 /* Must be called before proxyarp_task_start(), so the task knows

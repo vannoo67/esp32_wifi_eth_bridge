@@ -19,3 +19,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+## Development Note
+
+The proxy-ARP bridging feature (main/arptab.c, main/proxyarp_task.c,
+main/proxyarp_netif_hooks.c, main/proxyarp_dhcp_relay.c,
+main/proxyarp_startup.c, main/lwip_hooks.c, and associated CLI/WebUI
+integration) was developed by Jon van Noort with assistance from
+Claude (Anthropic).
+
+## Third-Party Attribution: parprouted
+
+This fork includes ARP-table and proxy-ARP handling logic derived from
+parprouted (https://github.com/Adellica/parprouted), originally written
+by Vladimir Ivashchenko and licensed under the GNU General Public
+License v2.0 (GPL-2.0).
+
+Vladimir Ivashchenko has kindly granted permission for the parprouted
+code used in this project to be licensed under the MIT License above,
+specifically to allow its use alongside esp32_ethernet_router. This
+grant applies only to the code as incorporated into this project; the
+original parprouted project itself remains licensed under GPL-2.0 at
+its own repository.
+
+Derived from parprouted with Vladimir Ivashchenko's consent.
+

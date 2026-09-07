@@ -1,3 +1,7 @@
+/*
+ * Derived from parprouted with Vladimir Ivashchenko's consent.
+ * See arptab.h for details.
+ */
 #include <string.h>
 #include <stdio.h>
 #include "arptab.h"

@@ -1,3 +1,7 @@
+/*
+ * Derived from parprouted with Vladimir Ivashchenko's consent.
+ * See proxyarp_task.h / arptab.h for details.
+ */
 #include <string.h>
 #include "proxyarp_task.h"
 #include "proxyarp_netif_hooks.h"
