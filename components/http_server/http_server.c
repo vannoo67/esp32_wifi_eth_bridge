@@ -993,6 +993,11 @@ static esp_err_t index_get_handler(httpd_req_t *req)
         SEND_CHUNK(req, "<tr><td>Uplink Signal:</td><td><strong>Disconnected</strong></td></tr>", HTTPD_RESP_USE_STRLEN);
     }
 
+    /* Stream Ethernet Mode row */
+    snprintf(row, sizeof(row), "<tr><td>Ethernet Mode:</td><td>%s</td></tr>",
+             eth_mode ? "Bridged" : "Routed");
+    SEND_CHUNK(req, row, HTTPD_RESP_USE_STRLEN);
+    
     /* Stream Ethernet IP row */
     esp_ip4_addr_t ap_addr;
     ap_addr.addr = my_ap_ip;

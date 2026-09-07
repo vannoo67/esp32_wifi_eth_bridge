@@ -96,13 +96,16 @@ document.addEventListener('DOMContentLoaded', updateEthModeFields);\
 <tr><td>IP</td><td><input type='text' name='ap_ip_addr' value='%s' placeholder='192.168.4.1'/></td></tr>\
 <tr><td>DNS Server</td><td><input type='text' name='ap_dns' value='%s' placeholder='empty = use upstream DNS'/></td></tr>\
 <tr><td>Mode</td><td><select name='eth_mode' id='eth_mode_select' onchange='updateEthModeFields()'>\
-<option value='0' %s>NAT</option>\
-<option value='1' %s>ProxyARP</option>\
-</select></td></tr>\
+<option value='0' %s>Routed</option>\
+<option value='1' %s>Bridged</option>\
+</select>\
+<br/><small>Routed: Ethernet is a separate subnet <br>Bridged: Devices join your main network</small>\
+</td></tr>\
 <tr id='arp_timeout_row'><td>ARP Timeout (s)</td><td><input type='number' name='arp_timeout' value='%d' min='10' max='86400'/></td></tr>\
 <tr id='eth_nat_row'><td>NAT</td><td>\
 <label style='margin-right: 1rem;'><input type='radio' name='eth_nat' value='1' %s> Enabled</label>\
-<label><input type='radio' name='eth_nat' value='0' %s> Disabled (routed)</label>\
+<label><input type='radio' name='eth_nat' value='0' %s> Disabled</label>\
+<br/><small>Enabled: Devices are hidden behind one address<br/>Disabled: Devices get their own addresses <br/>(Use static routes to access)</small>\
 </td></tr>\
 <tr id='eth_dhcps_row'><td>DHCP Server</td><td>\
 <label style='margin-right: 1rem;'><input type='radio' name='eth_dhcps' value='1' %s> Enabled</label>\

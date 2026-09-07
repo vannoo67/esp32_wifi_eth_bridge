@@ -819,33 +819,34 @@ static int set_eth_mode(int argc, char **argv)
     }
     const char *mode = set_eth_mode_arg.mode->sval[0];
     int val;
-    if (strcasecmp(mode, "proxyarp") == 0) {
+    if (strcasecmp(mode, "bridged") == 0) {
         val = 1;
-    } else if (strcasecmp(mode, "nat") == 0) {
+    } else if (strcasecmp(mode, "routed") == 0) {
         val = 0;
     } else {
-        printf("Usage: set_eth_mode <nat|proxyarp>\n");
+        printf("Usage: set_eth_mode <routed|bridged>\n");
         return 1;
     }
     esp_err_t err = set_config_param_int("eth_mode", val);
     if (err == ESP_OK) {
         eth_mode = val;
         printf("Ethernet mode set to %s. Restart to apply.\n",
-               val ? "proxyarp" : "nat");
+               val ? "bridged" : "routed");
     }
     return err;
 }
 
 static void register_set_eth_mode(void)
 {
-    set_eth_mode_arg.mode = arg_str1(NULL, NULL, "<nat|proxyarp>",
+    set_eth_mode_arg.mode = arg_str1(NULL, NULL, "<routed|bridged>",
                                        "Select Ethernet downlink mode");
     set_eth_mode_arg.end = arg_end(1);
     const esp_console_cmd_t cmd = {
         .command = "set_eth_mode",
-        .help = "Select Ethernet mode: nat (default) or proxyarp "
-                "(same-subnet transparent bridging, forces NAT and "
-                "built-in DHCP server off)",
+        .help = "Select Ethernet mode: routed (NAT or direct routing "
+                "between subnets - see set_eth_nat) or bridged "
+                "(transparent same-subnet extension via proxy-ARP, "
+                "forces NAT and built-in DHCP server off)",
         .hint = NULL,
         .func = &set_eth_mode,
         .argtable = &set_eth_mode_arg
@@ -1567,7 +1568,7 @@ static int show(int argc, char **argv)
             printf("Ethernet IP: " IPSTR "\n", IP2STR(&addr));
         }
         printf("Ethernet: %s\n", eth_link_up ? "link up" : "link down");
-        printf("Ethernet mode: %s\n", eth_mode ? "proxy-ARP" : "NAT");
+        printf("Ethernet mode: %s\n", eth_mode ? "Bridged" : "Routed");
         if (eth_mode) {
             printf("Proxy-ARP entries: %d\n", arptab_count());
             printf("Proxy-ARP timeout: %d seconds\n", arptab_get_timeout());
@@ -1834,10 +1835,10 @@ static int show(int argc, char **argv)
             }
             printf("Image state: %s\n", state_str);
         }
-    } else if (strcmp(type, "arptab") == 0) {
+        } else if (strcmp(type, "arptab") == 0) {
         if (!eth_mode) {
-            printf("Not in proxy-ARP mode (currently: NAT). "
-                   "Run 'set_eth_mode proxyarp' and restart to enable.\n");
+            printf("Not in Bridged mode (currently: Routed). "
+                   "Run 'set_eth_mode bridged' and restart to enable.\n");
         } else {
             printf("Proxy-ARP Table:\n");
             printf("================\n");
