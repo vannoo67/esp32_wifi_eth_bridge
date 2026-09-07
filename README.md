@@ -2,13 +2,13 @@
 
 Firmware for the **[WT32-ETH01](https://github.com/egnor/wt32-eth01)** board (and boards with a W5500 ethernet module) that turns it into a compact network router. 
 
-**Derived from** [esp32_nat_router](https://github.com/martin-ger/esp32_nat_router). The original project uses WiFi as the downlink (AP) and (as one option) Ethernet as the uplink. This variant reverses that: **WiFi STA is the uplink** (Internet) and **Ethernet is the downlink** (LAN). If you are looking for a plain ESP32 **Ethernet AP** (Layer 2 bridge), check out [esp32_eth_wifi_bridge](https://github.com/martin-ger/esp32_eth_wifi_bridge).
+**Derived from** [esp32_nat_router](https://github.com/martin-ger/esp32_nat_router). The original project uses WiFi as the downlink (AP) and (as one option) Ethernet as the uplink. This variant reverses that: **WiFi STA is the uplink** (Internet) and **Ethernet is the downlink** (LAN). If you are looking for a plain ESP32 **Ethernet AP** (Layer 2 bridge), check out [esp32_eth_wifi_bridge](https://github.com/martin-ger/esp32_eth_wifi_bridge) — note that project bridges in the opposite direction (Ethernet uplink, WiFi AP downlink) and can't be used for the WiFi-STA-uplink topology this project targets. For that topology, this router's **Bridged mode** (below) is the closest equivalent to transparent bridging that's achievable given the constraints of a WiFi client association.
 
-The board connects to an existing WiFi network as a client (STA) and shares that connection with wired devices through its Ethernet port. The Ethernet side runs its own IP subnet, an optional DHCP server, and optional NAT — so Ethernet clients need no special configuration and get transparent Internet access.
+The board connects to an existing WiFi network as a client (STA) and shares that connection with wired devices through its Ethernet port. Two operating modes are available for the Ethernet side: **Routed** (its own IP subnet, with optional DHCP server and optional NAT) or **Bridged** (Ethernet devices join the main WiFi network directly, with real addresses, via proxy-ARP and DHCP relay — no static routes or port forwarding needed to reach them from the main network).
 
 <img src="https://raw.githubusercontent.com/martin-ger/esp32_ethernet_router/refs/heads/main/esp32_ethernet_router_topo.png">
 
-All traffic from Ethernet clients is NATed through the router's WiFi uplink address by default, so the upstream network sees only a single client. NAT can be disabled for routed (non-NATed) operation if the upstream network knows the `192.168.4.0/24` subnet. A WireGuard VPN tunnel can optionally replace or supplement the direct uplink path, with a kill switch that blocks unprotected traffic when the tunnel is down.
+In **Routed** mode (the default), all traffic from Ethernet clients is NATed through the router's WiFi uplink address, so the upstream network sees only a single client. NAT can be disabled for routed (non-NATed) operation if the upstream network knows the `192.168.4.0/24` subnet. In **Bridged** mode, Ethernet clients instead get real addresses from the main network's own DHCP server and are directly reachable from any host on the main WiFi — closer to how a commercial WiFi range extender behaves. A WireGuard VPN tunnel can optionally replace or supplement the direct uplink path, with a kill switch that blocks unprotected traffic when the tunnel is down.
 
 All settings are managed through a browser-based web interface or via the serial console at 115200 bps. After boot the router is reachable by name at `http://esp32-eth-router.local` (or whatever hostname is configured) from any LAN client that supports mDNS — no need to look up the IP.
 
@@ -22,6 +22,7 @@ All settings are managed through a browser-based web interface or via the serial
 - **WPA2-Enterprise bridge** — give plain devices access to a corporate WiFi that requires 802.1X authentication
 - **VPN Gateway** — connect a LAN segment upstream via a protected VPN tunnel
 - **Routed segment (no NAT)** — operate as a pure IP router, forwarding traffic between the WiFi uplink and the Ethernet segment without address translation
+- **Transparent WiFi extension (Bridged mode)** — extend WiFi coverage to a wired segment where devices need to appear on the main network with real, directly-reachable addresses, similar to a commercial WiFi range extender
 
 ---
 
@@ -31,8 +32,9 @@ All settings are managed through a browser-based web interface or via the serial
 - WPA2-Personal and WPA2-Enterprise (PEAP, TTLS, TLS) on the uplink
 - Configurable static IP or DHCP for the WiFi uplink
 - Ethernet LAN downlink with configurable IP
-- NAT (NAPT) — enable or disable per configuration; when disabled the Ethernet segment is routed
-- DHCP server on Ethernet — enable or disable independently of NAT
+- **Bridged mode** — transparent same-subnet extension via proxy-ARP and DHCP relay; Ethernet clients get real addresses from the main network and are directly reachable, no static routes needed
+- NAT (NAPT) — enable or disable per configuration when in Routed mode; when disabled the Ethernet segment is routed
+- DHCP server on Ethernet — enable or disable independently of NAT (Routed mode only; Bridged mode relays DHCP to the main network instead)
 - DHCP reservations — assign fixed IPs to clients by MAC address
 - Port forwarding (DNAT) — forward external TCP/UDP ports to internal hosts
 - Stateless packet firewall with four directional ACL lists, 16 rules each
@@ -147,7 +149,7 @@ Access the web interface from any device connected to the Ethernet LAN. The defa
 
 **/ — Status**
 
-Shows current connection state: uplink SSID, uplink IP, signal strength, Ethernet IP, VPN status (when a tunnel is configured), packet capture mode (when active), byte counters, and uptime. When a web password is set, the login form appears here.
+Shows current connection state: uplink SSID, uplink IP, signal strength, Ethernet Mode (Routed / Bridged), Ethernet IP, VPN status (when a tunnel is configured), packet capture mode (when active), byte counters, and uptime. When a web password is set, the login form appears here.
 
 <img src="https://raw.githubusercontent.com/martin-ger/esp32_ethernet_router/refs/heads/main/UI_index.png">
 
@@ -155,7 +157,7 @@ Shows current connection state: uplink SSID, uplink IP, signal strength, Etherne
 
 Grouped into sections. Changes trigger a reboot to apply.
 
-- *Ethernet Subnet Settings* — LAN IP address, DNS server override, NAT toggle (enabled / disabled), DHCP server toggle (enabled / disabled)
+- *Ethernet Subnet Settings* — LAN IP address, DNS server override, **Mode** selector (Routed / Bridged). NAT toggle, DHCP server toggle, and (Bridged mode only) ARP timeout are shown or hidden depending on the selected mode — NAT and DHCP server are only meaningful in Routed mode and are automatically disabled when Bridged is selected
 - *WiFi Settings (Uplink)* — SSID, password, WPA2-Enterprise credentials (username, identity, EAP method, TTLS phase 2, certificate options), MAC address override
 - *Static IP Settings* — static IP, subnet mask, gateway for the WiFi uplink; leave empty to use DHCP
 - *Remote Console* — enable/disable, port, interface binding (ETH/STA/VPN), idle timeout
@@ -216,22 +218,43 @@ The router connects to the upstream WiFi network and reconnects immediately on d
 ```
 set_ap_ip <ip>
 set_ap_dns <dns>
+set_eth_mode <routed|bridged>
 set_eth_nat <on|off>
 set_eth_dhcps <on|off>
 set_eth_dhcpc <on|off>
+set_arp_timeout <seconds>
 ```
 
-The Ethernet interface defaults to `192.168.4.1/24` with NAT and DHCP server enabled. Changes to NAT or DHCP server state take effect after reboot.
+The Ethernet interface defaults to `192.168.4.1/24`, **Routed** mode, with NAT and DHCP server enabled. Changes to mode, NAT, or DHCP server state take effect after reboot.
 
-When NAT is disabled, the Ethernet segment is routed — clients use their own IP addresses, and the router forwards packets to the default gateway (WiFi uplink or VPN tunnel).
+When NAT is disabled (Routed mode), the Ethernet segment is routed — clients use their own IP addresses, and the router forwards packets to the default gateway (WiFi uplink or VPN tunnel).
 
-When DHCP server is disabled, clients must be configured with static IPs in the `192.168.4.x` range (or whatever subnet you set).
+When DHCP server is disabled (Routed mode), clients must be configured with static IPs in the `192.168.4.x` range (or whatever subnet you set).
+
+#### Bridged Mode (Transparent Extension)
+
+`set_eth_mode bridged` switches the Ethernet downlink from a separate routed subnet to a transparent extension of the main WiFi network — Ethernet devices get real addresses from the **main network's own DHCP server** and are directly reachable from any host on that network, with no static routes, port forwarding, or manual configuration needed. This is the closest equivalent to what a commercial WiFi range extender does, adapted for a WiFi-STA-uplink topology where true Layer 2 bridging isn't possible (a WiFi client association is inherently bound to a single MAC address, so ordinary bridging can't work in this direction — see the note in the introduction above).
+
+The ARP-table and proxy-ARP handling logic is derived from [parprouted](https://github.com/Adellica/parprouted) (used with the original author's consent — see `LICENSE`).
+
+The mechanism has two parts:
+
+- **Proxy-ARP routing** — custom `LWIP_HOOK_IP4_ROUTE_SRC` and `LWIP_HOOK_ETHARP_GET_GW` hooks route traffic to individually-learned hosts and answer ARP requests on their behalf across the WiFi/Ethernet boundary, learned live from ARP traffic on both interfaces.
+- **DHCP relay** — an RFC 1542-style relay agent forwards DHCP requests from Ethernet-side devices to the main network's DHCP server (assumed to be the WiFi uplink's own default gateway) and relays replies back, so devices get addresses in the main subnet rather than from a local DHCP server.
+
+Selecting Bridged mode **forces NAT and the DHCP server off** (both are incompatible with transparent bridging) — this only affects the in-memory state; their persisted settings are left untouched, so switching back to Routed mode restores whatever was configured before.
+
+**Bridged mode and DHCP-client mode (`set_eth_dhcpc`) are mutually exclusive** — DHCP-client mode turns the Ethernet port into the router's own uplink connection, leaving no downstream devices to bridge. `set_eth_mode bridged` refuses to apply while DHCP-client mode is enabled, and vice versa; a boot-time check also falls back to Routed mode if both are somehow persisted as enabled at once.
+
+`set_arp_timeout <seconds>` controls how long a learned proxy-ARP entry stays valid before expiring (10–86400, default 300). Unlike the mode/NAT/DHCP settings, this applies immediately with no reboot required. Entries are checked for expiry roughly every 30 seconds; a device that goes quiet longer than the timeout is re-discovered automatically the next time something tries to reach it, at the cost of one extra ARP round-trip.
+
+`show arptab` lists currently-learned proxy-ARP entries (IP, interface, MAC, age); only meaningful in Bridged mode.
 
 #### Ethernet Uplink / DHCP-Client Mode
 
 `set_eth_dhcpc on` inverts the Ethernet role: instead of a static LAN downlink, the Ethernet port becomes a **DHCP client** that obtains its IP, gateway, and DNS from an upstream router. This is for topologies where the WiFi STA connects to an isolated device AP and the Ethernet port faces the main home network.
 
-When enabled, the DHCP server is forced off (server and client are mutually exclusive on one interface), the Ethernet interface becomes the device's default route, and NAT (if enabled) masquerades Ethernet→STA traffic to the STA's IP. The mode is off by default and takes effect after reboot.
+When enabled, the DHCP server is forced off (server and client are mutually exclusive on one interface), the Ethernet interface becomes the device's default route, and NAT (if enabled) masquerades Ethernet→STA traffic to the STA's IP. The mode is off by default and takes effect after reboot. **Mutually exclusive with Bridged mode** (above) — `set_eth_dhcpc on` refuses to apply while Bridged mode is active, since DHCP-client mode leaves no downstream Ethernet devices to bridge.
 
 For home clients to reach a device behind the WiFi STA, the home router still needs a static route for that subnet pointing at the ESP32's Ethernet IP; give the ESP32 a DHCP reservation on the home router so the next-hop stays stable.
 
@@ -542,9 +565,11 @@ Connect via serial at 115200 bps, or via the remote console.
 | `set_sta_mac <mac>` | Override WiFi MAC address |
 | `set_ap_ip <ip>` | Set Ethernet interface IP |
 | `set_ap_dns <dns>` | Set DNS server for Ethernet clients |
-| `set_eth_nat <on\|off>` | Enable or disable NAT (requires reboot) |
-| `set_eth_dhcps <on\|off>` | Enable or disable DHCP server (requires reboot) |
-| `set_eth_dhcpc <on\|off>` | Ethernet uplink mode: get IP via DHCP from upstream router; forces DHCP server off, Ethernet becomes default route (requires reboot) |
+| `set_eth_mode <routed\|bridged>` | Select Ethernet downlink mode; Bridged forces NAT and DHCP server off, mutually exclusive with `set_eth_dhcpc on` (requires reboot) |
+| `set_eth_nat <on\|off>` | Enable or disable NAT, Routed mode only (requires reboot) |
+| `set_eth_dhcps <on\|off>` | Enable or disable DHCP server, Routed mode only (requires reboot) |
+| `set_eth_dhcpc <on\|off>` | Ethernet uplink mode: get IP via DHCP from upstream router; forces DHCP server off, Ethernet becomes default route, mutually exclusive with Bridged mode (requires reboot) |
+| `set_arp_timeout <seconds>` | Set proxy-ARP entry timeout, Bridged mode (10-86400, default 300, applies immediately) |
 | `set_hostname <name>` | Set DHCP hostname |
 | `set_ttl <value>` | Override TTL in forwarded packets |
 | `ping <host>` | Send ICMP echo requests |
@@ -654,7 +679,8 @@ Lists: `to_esp`, `from_esp`, `from_eth`, `to_eth`
 
 | Command | Description |
 |---------|-------------|
-| `show status` | Connection state, IPs, heap |
+| `show status` | Connection state, IPs, Ethernet mode, heap (also shows proxy-ARP entry count/timeout in Bridged mode) |
+| `show arptab` | List learned proxy-ARP entries (IP, interface, MAC, age) — Bridged mode only |
 | `version` | Chip model, IDF version, flash size |
 | `heap` | Current and minimum free heap |
 | `tasks` | FreeRTOS task list |
