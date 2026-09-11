@@ -8,11 +8,24 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 static const char *TAG = "arptab";
 static arptab_entry_t *s_arptab = NULL;
 static SemaphoreHandle_t s_arptab_mutex = NULL;
 static int s_arp_timeout_sec = ARP_TABLE_ENTRY_TIMEOUT_DEFAULT;
+
+/* Monotonic seconds since boot, via esp_timer_get_time() (always
+ * valid, counting from boot) rather than time(NULL) (wall-clock,
+ * reads as ~0/epoch until SNTP has actually synced - the cause of
+ * the huge bogus ages seen for entries created early in boot, before
+ * sync completes). arptab's timestamps are only ever compared
+ * against each other, never against real wall-clock time, so this
+ * substitution is safe and doesn't change any external behavior. */
+static time_t monotonic_seconds(void)
+{
+    return (time_t)(esp_timer_get_time() / 1000000LL);
+}
 
 void arptab_set_timeout(int seconds)
 {
@@ -73,7 +86,7 @@ arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif, 
      * so ipaddr stayed 0.0.0.0 and lookups could never match it. */
     cur->ipaddr = *ip;
     cur->netif = netif;
-    cur->tstamp = time(NULL);
+    cur->tstamp = monotonic_seconds();
     cur->want_route = 1;
 
     if (out_is_new != NULL) {
@@ -138,7 +151,7 @@ void arptab_age_out(void)
 
     arptab_entry_t *cur = s_arptab;
     arptab_entry_t *prev = NULL;
-    time_t now = time(NULL);
+    time_t now = monotonic_seconds();
 
     while (cur != NULL) {
         if (!cur->want_route || (now - cur->tstamp) > s_arp_timeout_sec) {
@@ -213,7 +226,7 @@ void arptab_print(void)
         return;
     }
     xSemaphoreTake(s_arptab_mutex, portMAX_DELAY);
-    time_t now = time(NULL);
+    time_t now = monotonic_seconds();
     printf("%-16s %-9s %-17s %6s %s\n", "IP", "Interface", "MAC", "Age(s)", "Active");
     for (arptab_entry_t *cur = s_arptab; cur != NULL; cur = cur->next) {
         char ifname[8];
