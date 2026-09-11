@@ -23,18 +23,18 @@ extern struct netif *ip4_route_src_hook(const ip4_addr_t *src, const ip4_addr_t 
  */
 struct netif *proxyarp_ip4_route_src_hook(const ip4_addr_t *src, const ip4_addr_t *dest)
 {
-    ESP_LOGW(TAG, "route hook called for dest %s", ip4addr_ntoa(dest));
+    ESP_LOGD(TAG, "route hook called for dest %s", ip4addr_ntoa(dest));
 
     struct netif *target = arptab_lookup_netif(dest);
     if (target != NULL) {
         char ifname[8];
         netif_name_str(target, ifname, sizeof(ifname));
-        ESP_LOGW(TAG, "MATCHED - routing %s via learned netif %s",
+        ESP_LOGD(TAG, "MATCHED - routing %s via learned netif %s",
                  ip4addr_ntoa(dest), ifname);
         return target;
     }
 
-    ESP_LOGW(TAG, "no arptab match for %s - falling back to default", ip4addr_ntoa(dest));
+    ESP_LOGD(TAG, "no arptab match for %s - falling back to default", ip4addr_ntoa(dest));
     return ip4_route_src_hook(src, dest);
 }
 
@@ -47,7 +47,7 @@ const ip4_addr_t *proxyarp_etharp_get_gw_hook(struct netif *netif, const ip4_add
      * ran first for this same packet), tell lwIP to ARP for it
      * directly rather than substituting a gateway address. */
     if (arptab_lookup_netif(ipaddr) != NULL) {
-        ESP_LOGW(TAG, "etharp_get_gw: ARPing directly for %s instead of a gateway",
+        ESP_LOGD(TAG, "etharp_get_gw: ARPing directly for %s instead of a gateway",
                  ip4addr_ntoa(ipaddr));
         return ipaddr;
     }

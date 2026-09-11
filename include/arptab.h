@@ -12,6 +12,7 @@
  * project is built on.
  */
 #include <stdint.h>
+#include <stdbool.h>
 #include <time.h>
 #include "lwip/netif.h"
 #include "lwip/ip4_addr.h"
@@ -51,8 +52,12 @@ void arptab_init(void);
 void arptab_set_timeout(int seconds);
 int arptab_get_timeout(void);
 
-/* Find-or-create an entry for (ip, netif). Mirrors replace_entry(). */
-arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif);
+/* Find-or-create an entry for (ip, netif). Mirrors replace_entry().
+ * If out_is_new is non-NULL, set to true only when a brand-new entry
+ * was created (not when refreshing an existing one) - lets callers
+ * distinguish "just learned this host for the first time" from
+ * "saw traffic from an already-known host again". */
+arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif, bool *out_is_new);
 
 /* Mirrors findentry(): does this IP exist anywhere in the table? */
 int arptab_find(const ip4_addr_t *ip);

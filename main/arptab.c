@@ -32,7 +32,7 @@ void arptab_init(void)
 
 /* Ported near-verbatim from parprouted.c's replace_entry(), swapping
  * the ifname strcmp for a netif pointer comparison. */
-arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif)
+arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif, bool *out_is_new)
 {
     if (s_arptab_mutex == NULL) {
         ESP_LOGW(TAG, "arptab_replace_entry called before arptab_init()");
@@ -42,6 +42,7 @@ arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif)
 
     arptab_entry_t *cur = s_arptab;
     arptab_entry_t *prev = NULL;
+    bool is_new = false;
 
     while (cur != NULL &&
            !(ip4_addr_cmp(&cur->ipaddr, ip) && cur->netif == netif)) {
@@ -62,6 +63,7 @@ arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif)
             prev->next = cur;
         }
         cur->next = NULL;
+        is_new = true;
         ESP_LOGD(TAG, "created new entry for %s", ip4addr_ntoa(ip));
     }
 
@@ -73,6 +75,10 @@ arptab_entry_t *arptab_replace_entry(const ip4_addr_t *ip, struct netif *netif)
     cur->netif = netif;
     cur->tstamp = time(NULL);
     cur->want_route = 1;
+
+    if (out_is_new != NULL) {
+        *out_is_new = is_new;
+    }
 
     xSemaphoreGive(s_arptab_mutex);
     return cur;

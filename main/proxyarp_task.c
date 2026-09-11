@@ -93,13 +93,16 @@ static void learn_sender(bridge_iface_t iface, const arp_hdr_t *arp)
         return; /* e.g. a gratuitous probe with no sender IP yet */
     }
 
-    arptab_entry_t *entry = arptab_replace_entry(&sender_ip, netif);
+    bool is_new = false;
+    arptab_entry_t *entry = arptab_replace_entry(&sender_ip, netif, &is_new);
     if (entry != NULL) {
         memcpy(entry->hwaddr, arp->sha, 6);
         arptab_remove_other_routes(&sender_ip, netif);
-        char ifname[8];
-        netif_name_str(netif, ifname, sizeof(ifname));
-        ESP_LOGI(TAG, "learned %s on %s", ip4addr_ntoa(&sender_ip), ifname);
+        if (is_new) {
+            char ifname[8];
+            netif_name_str(netif, ifname, sizeof(ifname));
+            ESP_LOGI(TAG, "learned %s on %s", ip4addr_ntoa(&sender_ip), ifname);
+        }
     }
 }
 
@@ -142,7 +145,7 @@ static void maybe_proxy_reply(bridge_iface_t iface, const arp_hdr_t *arp)
     {
         char ifname[8];
         netif_name_str(this_netif, ifname, sizeof(ifname));
-        ESP_LOGI(TAG, "proxy-replied for %s on %s",
+        ESP_LOGD(TAG, "proxy-replied for %s on %s",
                   ip4addr_ntoa(&target_ip), ifname);
     }
 }
