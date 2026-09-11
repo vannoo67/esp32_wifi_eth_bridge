@@ -124,13 +124,26 @@ static void maybe_proxy_reply(bridge_iface_t iface, const arp_hdr_t *arp)
          * interface so we might learn it for next time. */
         if (known_netif == NULL) {
             eth_arp_frame_t probe;
-            const uint8_t *our_mac = proxyarp_get_iface_mac(other_iface(iface));
-            ip4_addr_t any_ip = *IP4_ADDR_ANY4;
-            build_arp_frame(&probe, ARPOP_REQUEST, s_broadcast_mac,
-                             our_mac, &any_ip, s_zero_mac, &target_ip);
-            send_on_iface(other_iface(iface), &probe);
-            ESP_LOGD(TAG, "probing for unknown %s on other interface",
-                     ip4addr_ntoa(&target_ip));
+            bridge_iface_t probe_iface = other_iface(iface);
+            const uint8_t *our_mac = proxyarp_get_iface_mac(probe_iface);
+            /* Use our REAL IP on the outgoing interface as sender,
+             * not 0.0.0.0. A 0.0.0.0-sourced ARP request is RFC 5227
+             * ACD-probe format (duplicate-address detection), not an
+             * ordinary "who has" query - many stacks handle it
+             * differently and may not generate a reply at all, which
+             * would make active discovery of previously-unseen hosts
+             * fail silently and consistently, not just occasionally. */
+            const ip4_addr_t *probe_src_ip = netif_ip4_addr(s_iface_netif[probe_iface]);
+            if (probe_src_ip == NULL || ip4_addr_isany_val(*probe_src_ip)) {
+                ESP_LOGW(TAG, "probe interface has no IP yet, skipping probe for %s",
+                         ip4addr_ntoa(&target_ip));
+            } else {
+                build_arp_frame(&probe, ARPOP_REQUEST, s_broadcast_mac,
+                                 our_mac, probe_src_ip, s_zero_mac, &target_ip);
+                send_on_iface(probe_iface, &probe);
+                ESP_LOGD(TAG, "probing for unknown %s on other interface",
+                         ip4addr_ntoa(&target_ip));
+            }
         }
         return;
     }
