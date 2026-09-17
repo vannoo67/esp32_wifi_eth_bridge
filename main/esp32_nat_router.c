@@ -45,6 +45,9 @@
 #include "esp_eth_mac_spi.h"
 #include "w5500_spi_driver.h"
 #include "esp_heap_caps.h"
+#elif defined(CONFIG_ETH_DOWNLINK_ESP32LINK)
+#include "esp32link_mac.h"
+#include "esp32link_phy.h"
 #endif
 
 #include "lwip/opt.h"
@@ -562,6 +565,32 @@ void router_init(const uint8_t* mac, const char* ssid, const char* ent_username,
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
     phy_config.reset_gpio_num = CONFIG_ETH_SPI_RST_GPIO;   // GPIO2 drives W5500 RST
     esp_eth_phy_t *phy = esp_eth_phy_new_w5500(&phy_config);
+#elif defined(CONFIG_ETH_DOWNLINK_ESP32LINK)
+    // Direct ESP32-to-ESP32 link (SPI or UART), replacing the W5500 +
+    // cable. Transport/role/pins come from esp32_link_eth's own
+    // Kconfig, not this project's.
+    eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
+
+#if CONFIG_ESP32LINK_TRANSPORT_SPI
+    esp32link_spi_config_t link_cfg = ESP32LINK_SPI_DEFAULT_CONFIG();
+#if CONFIG_ESP32LINK_SPI_ROLE_MASTER
+    link_cfg.is_master = true;
+#else
+    link_cfg.is_master = false;
+#endif
+    esp_eth_mac_t *eth_mac = esp_eth_mac_new_esp32link_spi(&link_cfg, &mac_config);
+#else
+    esp32link_uart_config_t link_cfg = ESP32LINK_UART_DEFAULT_CONFIG();
+#if CONFIG_ESP32LINK_UART_FLOW_CTRL
+    link_cfg.gpio_rts = CONFIG_ESP32LINK_UART_GPIO_RTS;
+    link_cfg.gpio_cts = CONFIG_ESP32LINK_UART_GPIO_CTS;
+#endif
+    esp_eth_mac_t *eth_mac = esp_eth_mac_new_esp32link_uart(&link_cfg, &mac_config);
+#endif
+
+    eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG(); // unused by this driver, kept for symmetry
+    (void)phy_config;
+    esp_eth_phy_t *phy = esp_eth_phy_new_esp32link();
 
 #else
     // Internal EMAC + LAN8720 (WT32-ETH01)
@@ -592,13 +621,13 @@ void router_init(const uint8_t* mac, const char* ssid, const char* ent_username,
     config.check_link_period_ms = 1000;  // poll every 1s; debounce=4 → 4s to confirm link-down
     ESP_ERROR_CHECK(esp_eth_driver_install(&config, &eth_handle));
 
-#if defined(CONFIG_ETH_DOWNLINK_W5500)
-    // W5500 modules often lack a factory MAC — derive one from the chip's base MAC
+#if defined(CONFIG_ETH_DOWNLINK_W5500) || defined(CONFIG_ETH_DOWNLINK_ESP32LINK)
+    // Neither the W5500 modules nor the direct-link driver have a factory MAC
     {
         uint8_t eth_mac_addr[6];
         ESP_ERROR_CHECK(esp_read_mac(eth_mac_addr, ESP_MAC_ETH));
         ESP_ERROR_CHECK(esp_eth_ioctl(eth_handle, ETH_CMD_S_MAC_ADDR, eth_mac_addr));
-        ESP_LOGI(TAG, "W5500 MAC set to %02x:%02x:%02x:%02x:%02x:%02x",
+        ESP_LOGI(TAG, "Ethernet downlink MAC set to %02x:%02x:%02x:%02x:%02x:%02x",
                  eth_mac_addr[0], eth_mac_addr[1], eth_mac_addr[2],
                  eth_mac_addr[3], eth_mac_addr[4], eth_mac_addr[5]);
     }

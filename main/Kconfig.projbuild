@@ -19,6 +19,17 @@ menu "Ethernet Downlink"
             bool "Internal EMAC (WT32-ETH01 / LAN8720)"
         config ETH_DOWNLINK_W5500
             bool "SPI Ethernet W5500"
+        config ETH_DOWNLINK_ESP32LINK
+            bool "Direct ESP32-to-ESP32 link (SPI/UART, no W5500)"
+            help
+                Links this board directly to a peer ESP32 over SPI or
+                UART instead of a W5500 + Ethernet cable. Transport
+                (SPI/UART), role, pins and clock are configured
+                separately, under "Component config" -> "ESP32 Link
+                Ethernet" -- that menu comes from the esp32_link_eth
+                component itself, not from this project, so it only
+                appears once the dependency is pulled in via
+                idf_component.yml.
     endchoice
 
     # --- Internal EMAC options (WT32-ETH01) ---

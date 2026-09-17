@@ -6,6 +6,7 @@ build_*/
 sdkconfig
 sdkconfig.w5500_c3
 sdkconfig.wt32
+sdkconfig.old
 
 # Managed components (fetched by idf component manager)
 managed_components/

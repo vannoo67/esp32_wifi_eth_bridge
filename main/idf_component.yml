@@ -4,3 +4,7 @@ dependencies:
   espressif/led_strip: '*'
   espressif/iperf: '^1.0.2'
   espressif/mdns: '*'
+  esp32_link_eth:
+    git: "https://github.com/vannoo67/esp32_link_eth.git"
+    version: "v0.1.1"
+    override_path: "F:/Documents/Projects/Electronics/ESP32-W5500/esp32_link_eth"
