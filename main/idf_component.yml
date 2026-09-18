@@ -6,4 +6,4 @@ dependencies:
   espressif/mdns: '*'
   esp32_link_eth:
     git: "https://github.com/vannoo67/esp32_link_eth.git"
-    version: "v0.1.2"
+    version: "v0.1.4"
